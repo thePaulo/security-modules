@@ -1,0 +1,379 @@
+package KieRule;
+import br.gov.sead.motorDeCalculo.model.*;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List
+import java.util.Date
+import java.math.MathContext
+import java.math.RoundingMode;
+import br.gov.sead.motorDeCalculo.repository.*;
+import java.util.stream.Collectors;
+import java.time.LocalDate;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
+
+rule "INSS faixa 1 (01/01/2022 - 31/12/2022)"
+   when
+        $listaINSS: List();
+        $faixa1: INSS() from $listaINSS.get(0);
+        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoRegime == "CLT");
+        $vencimento: BigDecimal($vencimento.compareTo($faixa1.getLimiteInferior()) == 1 && $vencimento.compareTo($faixa1.getLimiteSuperior().add(new BigDecimal("0.01"))) == -1) from $servidor.getSomatorioINSS();
+   then
+        $servidor.addVantagemDesconto(new VantagemDesconto("009", $servidor.getSomatorioINSS().multiply(new BigDecimal($faixa1.getAliquota())).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+  end;
+
+
+rule "INSS faixa 2 (01/01/2022 - 31/12/2022)"
+   when
+        $listaINSS: List();
+        $faixa1: INSS() from $listaINSS.get(0);
+        $faixa2: INSS() from $listaINSS.get(1);
+        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoRegime == "CLT");
+        $vencimento: BigDecimal($vencimento.compareTo($faixa1.getLimiteSuperior()) == 1 && $vencimento.compareTo($faixa2.getLimiteSuperior().add(new BigDecimal("0.01"))) == -1) from $servidor.getSomatorioINSS()
+   then
+        BigDecimal valor1 = $faixa1.getLimiteSuperior().multiply(new BigDecimal($faixa1.getAliquota()));
+        BigDecimal valor2 = ($vencimento.subtract($faixa1.getLimiteSuperior())).multiply(new BigDecimal($faixa2.getAliquota()));
+        $servidor.addVantagemDesconto(new VantagemDesconto( "009", valor1.add(valor2).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+  end;
+
+rule "INSS faixa 3 (01/01/2022 - 31/12/2022)"
+   when
+        $listaINSS: List();
+        $faixa1: INSS() from $listaINSS.get(0);
+        $faixa2: INSS() from $listaINSS.get(1);
+        $faixa3: INSS() from $listaINSS.get(2);
+        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoRegime == "CLT");
+        $vencimento: BigDecimal($vencimento.compareTo($faixa2.getLimiteSuperior()) == 1 && $vencimento.compareTo($faixa3.getLimiteSuperior().add(new BigDecimal("0.01"))) == -1) from $servidor.getSomatorioINSS();
+   then
+        BigDecimal valor1 = $faixa1.getLimiteSuperior().multiply(new BigDecimal($faixa1.getAliquota())).setScale(2);
+        BigDecimal valor2 = ($faixa2.getLimiteSuperior().subtract($faixa2.getLimiteInferior())).multiply(new BigDecimal($faixa2.getAliquota()));
+        BigDecimal valor3 = ($vencimento.subtract($faixa2.getLimiteSuperior())).multiply(new BigDecimal($faixa3.getAliquota()));
+        $servidor.addVantagemDesconto(new VantagemDesconto("009", valor1.add(valor2).add(valor3).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+  end;
+
+  rule "INSS faixa 4 (01/01/2022 - 31/12/2022)"
+     when
+          $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoRegime == "CLT");
+          $listaINSS: List();
+          $faixa1: INSS() from $listaINSS.get(0);
+          $faixa2: INSS() from $listaINSS.get(1);
+          $faixa3: INSS() from $listaINSS.get(2);
+          $faixa4: INSS() from $listaINSS.get(3);
+          $vencimento: BigDecimal($vencimento.compareTo($faixa3.getLimiteSuperior()) > 0) from $servidor.getSomatorioINSS();
+     then
+          BigDecimal valor1 = $faixa1.getLimiteSuperior().multiply(new BigDecimal($faixa1.getAliquota())).setScale(2);
+          BigDecimal valor2 = ($faixa2.getLimiteSuperior().subtract($faixa2.getLimiteInferior())).multiply(new BigDecimal($faixa2.getAliquota()));
+          BigDecimal valor3 = ($faixa3.getLimiteSuperior().subtract($faixa3.getLimiteInferior())).multiply(new BigDecimal($faixa3.getAliquota()));
+          BigDecimal valor4;
+
+          if($vencimento.compareTo($faixa4.getLimiteSuperior()) <= 0){
+               valor4 = ($vencimento.subtract($faixa4.getLimiteInferior())).multiply(new BigDecimal($faixa4.getAliquota()));
+          } else {
+               valor4 = ($faixa4.getLimiteSuperior().subtract($faixa4.getLimiteInferior())).multiply(new BigDecimal($faixa4.getAliquota()));
+          }
+
+          $servidor.addVantagemDesconto(new VantagemDesconto("009", valor1.add(valor2).add(valor3).add(valor4).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+    end;
+
+rule "IPE faixa 1 (01/01/2022 - 31/12/2022)"
+  when
+       $listaIPE: List();
+       $faixa1: IPE() from $listaIPE.get(0);
+       $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoRegime == "RJU");
+       $vencimento: BigDecimal($vencimento.compareTo($faixa1.getLimiteInferior()) > 0 && $vencimento.compareTo($faixa1.getLimiteSuperior().add(new BigDecimal("0.01"))) < 0) from $servidor.getSomatorioIPE();
+  then
+       $servidor.addVantagemDesconto(new VantagemDesconto("010", $servidor.getSomatorioIPE().multiply(new BigDecimal($faixa1.getAliquota())).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+end;
+
+
+rule "IPE faixa 2 (01/01/2022 - 31/12/2022)"
+  when
+       $listaIPE: List();
+       $faixa1: IPE() from $listaIPE.get(0);
+       $faixa2: IPE() from $listaIPE.get(1);   
+       $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoRegime == "RJU");
+       $vencimento: BigDecimal($vencimento.compareTo($faixa1.getLimiteSuperior()) > 0 && $vencimento.compareTo($faixa2.getLimiteSuperior().add(new BigDecimal("0.01"))) < 0) from $servidor.getSomatorioIPE();
+  then
+       BigDecimal valor1 = $faixa1.getLimiteSuperior().multiply(new BigDecimal($faixa1.getAliquota()));
+       BigDecimal valor2 = ($vencimento.subtract($faixa1.getLimiteSuperior())).multiply(new BigDecimal($faixa2.getAliquota()));
+       $servidor.addVantagemDesconto(new VantagemDesconto("010", valor1.add(valor2).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+ end;
+
+ rule "IPE faixa 3 (01/01/2022 - 31/12/2022)"
+    when
+       $listaIPE: List();
+       $faixa1: IPE() from $listaIPE.get(0);
+       $faixa2: IPE() from $listaIPE.get(1); 
+       $faixa3: IPE() from $listaIPE.get(2);  
+       $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoRegime == "RJU");
+       $vencimento: BigDecimal($vencimento.compareTo($faixa2.getLimiteSuperior()) == 1 && $vencimento.compareTo($faixa3.getLimiteSuperior().add(new BigDecimal("0.01"))) == -1) from $servidor.getSomatorioIPE();
+    then
+       BigDecimal valor1 = $faixa1.getLimiteSuperior().multiply(new BigDecimal($faixa1.getAliquota())).setScale(2);
+       BigDecimal valor2 = ($faixa2.getLimiteSuperior().subtract($faixa2.getLimiteInferior())).multiply(new BigDecimal($faixa2.getAliquota()));
+       BigDecimal valor3 = ($vencimento.subtract($faixa2.getLimiteSuperior())).multiply(new BigDecimal($faixa3.getAliquota()));
+       $servidor.addVantagemDesconto(new VantagemDesconto("010", valor1.add(valor2).add(valor3).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+  end;
+
+rule "IPE faixa 4 (01/01/2022 - 31/12/2022)"
+    when
+       $listaIPE: List();
+       $faixa1: IPE() from $listaIPE.get(0);
+       $faixa2: IPE() from $listaIPE.get(1);
+       $faixa3: IPE() from $listaIPE.get(2);  
+       $faixa4: IPE() from $listaIPE.get(3);  
+       $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoRegime == "RJU");
+       $vencimento: BigDecimal($vencimento.compareTo($faixa3.getLimiteSuperior()) == 1 && $vencimento.compareTo($faixa4.getLimiteSuperior().add(new BigDecimal("0.01"))) == -1) from $servidor.getSomatorioIPE();
+    then
+       BigDecimal valor1 = $faixa1.getLimiteSuperior().multiply(new BigDecimal($faixa1.getAliquota())).setScale(2);
+       BigDecimal valor2 = ($faixa2.getLimiteSuperior().subtract($faixa2.getLimiteInferior())).multiply(new BigDecimal($faixa2.getAliquota()));
+       BigDecimal valor3 = ($faixa3.getLimiteSuperior().subtract($faixa3.getLimiteInferior())).multiply(new BigDecimal($faixa3.getAliquota()));
+       BigDecimal valor4 = ($vencimento.subtract($faixa3.getLimiteSuperior())).multiply(new BigDecimal($faixa4.getAliquota()));
+       $servidor.addVantagemDesconto(new VantagemDesconto("010", valor1.add(valor2).add(valor3).add(valor4).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+ end;
+
+rule "IPE faixa 5 (01/01/2022 - 31/12/2022)"
+    when
+       $listaIPE: List();
+       $faixa1: IPE() from $listaIPE.get(0);
+       $faixa2: IPE() from $listaIPE.get(1); 
+       $faixa3: IPE() from $listaIPE.get(2);  
+       $faixa4: IPE() from $listaIPE.get(3); 
+       $faixa5: IPE() from $listaIPE.get(4);   
+       $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoRegime == "RJU");
+       $vencimento: BigDecimal($vencimento.compareTo($faixa4.getLimiteSuperior()) > 0) from $servidor.getSomatorioIPE();
+    then
+       BigDecimal valor1 = $faixa1.getLimiteSuperior().multiply(new BigDecimal($faixa1.getAliquota())).setScale(2);
+       BigDecimal valor2 = ($faixa2.getLimiteSuperior().subtract($faixa2.getLimiteInferior())).multiply(new BigDecimal($faixa2.getAliquota()));
+       BigDecimal valor3 = ($faixa3.getLimiteSuperior().subtract($faixa3.getLimiteInferior())).multiply(new BigDecimal($faixa3.getAliquota()));
+       BigDecimal valor4 = ($faixa4.getLimiteSuperior().subtract($faixa4.getLimiteInferior())).multiply(new BigDecimal($faixa4.getAliquota()));
+       BigDecimal valor5;
+
+       if($vencimento.compareTo($faixa5.getLimiteSuperior()) <= 0){
+          valor5 = ($vencimento.subtract($faixa5.getLimiteInferior())).multiply(new BigDecimal($faixa5.getAliquota()));
+       } else {
+          valor5 = ($faixa5.getLimiteSuperior().subtract($faixa5.getLimiteInferior())).multiply(new BigDecimal($faixa5.getAliquota()));
+       }
+
+      $servidor.addVantagemDesconto(new VantagemDesconto("010", valor1.add(valor2).add(valor3).add(valor4).add(valor5).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+   end;
+
+rule "IRRF Celetistas faixa 1 (01/01/2022 - 31/12/2022)"
+   when
+        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoRegime == "CLT");
+        $tabelaIRRF: List();
+        $faixa1: IRRF() from $tabelaIRRF.get(0);
+        $vencimento: BigDecimal($vencimento.compareTo($faixa1.getLimiteInferior()) > 0 && $vencimento.compareTo($faixa1.getLimiteSuperior().add(new BigDecimal("0.01"))) < 0) from $servidor.getSomatorioIRRF();
+   then
+        $servidor.addVantagemDesconto(new VantagemDesconto("011", new BigDecimal("0.00"), $servidor.getVigencia()));
+  end;
+
+rule "IRRF Celetistas faixa 2 (01/01/2022 - 31/12/2022)"
+   when
+        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoRegime == "CLT");
+        $tabelaIRRF: List();
+        $faixa1: IRRF() from $tabelaIRRF.get(0);
+        $faixa2: IRRF() from $tabelaIRRF.get(1);
+        $vencimento: BigDecimal($vencimento.compareTo($faixa1.getLimiteSuperior()) > 0 && $vencimento.compareTo($faixa2.getLimiteSuperior().add(new BigDecimal("0.01"))) < 0) from $servidor.getSomatorioIRRF();
+   then
+        BigDecimal inssCalculado = $servidor.getVantagemDescontos().stream().filter(vd -> vd.getCodRubrica().equals("009"))
+            .collect(Collectors.toList()).get(0).getValor();
+        BigDecimal vencimentoDescontadoINSS = $vencimento.subtract(inssCalculado);
+        BigDecimal aliquota = new BigDecimal($faixa2.getAliquota());
+        BigDecimal parcelaDedutivel = $faixa2.getParcelaDedutivel();
+        BigDecimal irrf = vencimentoDescontadoINSS.multiply(aliquota).subtract(parcelaDedutivel).setScale(2, RoundingMode.HALF_EVEN);
+
+        if(irrf.compareTo(new BigDecimal("0.00")) < 0){
+            $servidor.addVantagemDesconto(new VantagemDesconto("011", new BigDecimal("0.00"), $servidor.getVigencia()));
+        } else {
+            $servidor.addVantagemDesconto(new VantagemDesconto( "011", irrf, $servidor.getVigencia()));
+        }
+  end;
+
+  rule "IRRF Celetistas faixa 3 (01/01/2022 - 31/12/2022)"
+   when
+
+        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoRegime == "CLT");
+        $tabelaIRRF: List();
+        $faixa2: IRRF() from $tabelaIRRF.get(1);
+        $faixa3: IRRF() from $tabelaIRRF.get(2);
+        $vencimento: BigDecimal($vencimento.compareTo($faixa2.getLimiteSuperior()) > 0 && $vencimento.compareTo($faixa3.getLimiteSuperior().add(new BigDecimal("0.01"))) < 0) from $servidor.getSomatorioIRRF();
+   then
+        BigDecimal inssCalculado = $servidor.getVantagemDescontos().stream().filter(vd -> vd.getCodRubrica().equals("009"))
+            .collect(Collectors.toList()).get(0).getValor();
+        BigDecimal vencimentoDescontadoINSS = $vencimento.subtract(inssCalculado);
+        BigDecimal aliquota;
+        BigDecimal parcelaDedutivel;
+
+        if(vencimentoDescontadoINSS.compareTo($faixa2.getLimiteSuperior()) <= 0){
+          aliquota = new BigDecimal($faixa2.getAliquota());
+          parcelaDedutivel = $faixa2.getParcelaDedutivel();
+        } else {
+          aliquota = new BigDecimal($faixa3.getAliquota());
+          parcelaDedutivel = $faixa3.getParcelaDedutivel();
+        }
+
+        BigDecimal irrf = vencimentoDescontadoINSS.multiply(aliquota).subtract(parcelaDedutivel).setScale(2, RoundingMode.HALF_EVEN);
+        $servidor.addVantagemDesconto(new VantagemDesconto( "011", irrf, $servidor.getVigencia()));
+  end;
+
+rule "IRRF Celetistas faixa 4 (01/01/2022 - 31/12/2022)"
+   when
+        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoRegime == "CLT");
+        $tabelaIRRF: List();
+        $faixa3: IRRF() from $tabelaIRRF.get(2);
+        $faixa4: IRRF() from $tabelaIRRF.get(3);
+        $vencimento: BigDecimal($vencimento.compareTo($faixa3.getLimiteSuperior()) > 0 && $vencimento.compareTo($faixa4.getLimiteSuperior().add(new BigDecimal("0.01"))) < 0) from $servidor.getSomatorioIRRF();
+   then
+        BigDecimal inssCalculado = $servidor.getVantagemDescontos().stream().filter(vd -> vd.getCodRubrica().equals("009"))
+            .collect(Collectors.toList()).get(0).getValor();
+        BigDecimal vencimentoDescontadoINSS = $vencimento.subtract(inssCalculado);
+        BigDecimal aliquota;
+        BigDecimal parcelaDedutivel;
+
+        if(vencimentoDescontadoINSS.compareTo($faixa3.getLimiteSuperior()) <= 0){
+          aliquota = new BigDecimal($faixa3.getAliquota());
+          parcelaDedutivel = $faixa3.getParcelaDedutivel();
+        } else {
+          aliquota = new BigDecimal($faixa4.getAliquota());
+          parcelaDedutivel = $faixa4.getParcelaDedutivel();
+        }
+
+        BigDecimal irrf = vencimentoDescontadoINSS.multiply(aliquota).subtract(parcelaDedutivel).setScale(2, RoundingMode.HALF_EVEN);
+        $servidor.addVantagemDesconto(new VantagemDesconto("011", irrf, $servidor.getVigencia()));
+  end;
+
+rule "IRRF Celetistas faixa 5 (01/01/2022 - 31/12/2022)"
+   when
+        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoRegime == "CLT");
+        $tabelaIRRF: List();
+        $faixa4: IRRF() from $tabelaIRRF.get(3);
+        $faixa5: IRRF() from $tabelaIRRF.get(4);
+        $vencimento: BigDecimal($vencimento.compareTo($faixa4.getLimiteSuperior()) > 0) from $servidor.getSomatorioIRRF();
+   then
+        BigDecimal inssCalculado = $servidor.getVantagemDescontos().stream().filter(vd -> vd.getCodRubrica().equals("009"))
+            .collect(Collectors.toList()).get(0).getValor();
+        BigDecimal vencimentoDescontadoINSS = $vencimento.subtract(inssCalculado);
+        BigDecimal aliquota;
+        BigDecimal parcelaDedutivel;
+
+        if(vencimentoDescontadoINSS.compareTo($faixa4.getLimiteSuperior()) <= 0){
+          aliquota = new BigDecimal($faixa4.getAliquota());
+          parcelaDedutivel = $faixa4.getParcelaDedutivel();
+        } else {
+          aliquota = new BigDecimal($faixa5.getAliquota());
+          parcelaDedutivel = $faixa5.getParcelaDedutivel();
+        }
+
+        BigDecimal irrf = vencimentoDescontadoINSS.multiply(aliquota).subtract(parcelaDedutivel).setScale(2, RoundingMode.HALF_EVEN);
+        $servidor.addVantagemDesconto(new VantagemDesconto("011", irrf, $servidor.getVigencia()));
+  end;
+
+  rule "IRRF Estatutarios faixa 1 (01/01/2022 - 31/12/2022)"
+     when
+          $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoRegime == "RJU");
+          $tabelaIRRF: List();
+          $faixa1: IRRF() from $tabelaIRRF.get(0);
+          $vencimento: BigDecimal($vencimento.compareTo($faixa1.getLimiteInferior()) > 0 && $vencimento.compareTo($faixa1.getLimiteSuperior().add(new BigDecimal("0.01"))) < 0) from $servidor.getSomatorioIRRF();
+     then
+          $servidor.addVantagemDesconto(new VantagemDesconto("011", new BigDecimal("0.00"), $servidor.getVigencia()));
+    end;
+
+  rule "IRRF Estatutarios faixa 2 (01/01/2022 - 31/12/2022)"
+     when
+          $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoRegime == "RJU");
+          $tabelaIRRF: List();
+          $faixa1: IRRF() from $tabelaIRRF.get(0);
+          $faixa2: IRRF() from $tabelaIRRF.get(1);
+          $vencimento: BigDecimal($vencimento.compareTo($faixa1.getLimiteSuperior()) > 0 && $vencimento.compareTo($faixa2.getLimiteSuperior().add(new BigDecimal("0.01"))) < 0) from $servidor.getSomatorioIRRF();
+     then
+          BigDecimal ipeCalculado = $servidor.getVantagemDescontos().stream().filter(vd -> vd.getCodRubrica().equals("010"))
+              .collect(Collectors.toList()).get(0).getValor();
+          BigDecimal vencimentoDescontadoIPE = $vencimento.subtract(ipeCalculado);
+          BigDecimal aliquota = new BigDecimal($faixa2.getAliquota());
+          BigDecimal parcelaDedutivel = $faixa2.getParcelaDedutivel();
+          BigDecimal irrf = vencimentoDescontadoIPE.multiply(aliquota).subtract(parcelaDedutivel).setScale(2, RoundingMode.HALF_EVEN);
+
+          if(irrf.compareTo(new BigDecimal("0.00")) < 0){
+              $servidor.addVantagemDesconto(new VantagemDesconto("011", new BigDecimal("0.00"), $servidor.getVigencia()));
+          } else {
+              $servidor.addVantagemDesconto(new VantagemDesconto( "011", irrf, $servidor.getVigencia()));
+          }
+    end;
+
+    rule "IRRF Estatutarios faixa 3 (01/01/2022 - 31/12/2022)"
+     when
+          $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoRegime == "RJU");
+          $tabelaIRRF: List();
+          $faixa2: IRRF() from $tabelaIRRF.get(1);
+          $faixa3: IRRF() from $tabelaIRRF.get(2);
+          $vencimento: BigDecimal($vencimento.compareTo($faixa2.getLimiteSuperior()) > 0 && $vencimento.compareTo($faixa3.getLimiteSuperior().add(new BigDecimal("0.01"))) < 0) from $servidor.getSomatorioIRRF();
+     then
+          BigDecimal ipeCalculado = $servidor.getVantagemDescontos().stream().filter(vd -> vd.getCodRubrica().equals("010"))
+              .collect(Collectors.toList()).get(0).getValor();
+          BigDecimal vencimentoDescontadoIPE = $vencimento.subtract(ipeCalculado);
+          BigDecimal aliquota;
+          BigDecimal parcelaDedutivel;
+
+          if(vencimentoDescontadoIPE.compareTo($faixa2.getLimiteSuperior()) <= 0){
+            aliquota = new BigDecimal($faixa2.getAliquota());
+            parcelaDedutivel = $faixa2.getParcelaDedutivel();
+          } else {
+            aliquota = new BigDecimal($faixa3.getAliquota());
+            parcelaDedutivel = $faixa3.getParcelaDedutivel();
+          }
+
+          BigDecimal irrf = vencimentoDescontadoIPE.multiply(aliquota).subtract(parcelaDedutivel).setScale(2, RoundingMode.HALF_EVEN);
+          $servidor.addVantagemDesconto(new VantagemDesconto( "011", irrf, $servidor.getVigencia()));
+    end;
+
+  rule "IRRF Estatutarios faixa 4 (01/01/2022 - 31/12/2022)"
+     when
+          $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoRegime == "RJU");
+          $tabelaIRRF: List();
+          $faixa3: IRRF() from $tabelaIRRF.get(2);
+          $faixa4: IRRF() from $tabelaIRRF.get(3);
+          $vencimento: BigDecimal($vencimento.compareTo($faixa3.getLimiteSuperior()) > 0 && $vencimento.compareTo($faixa4.getLimiteSuperior().add(new BigDecimal("0.01"))) < 0) from $servidor.getSomatorioIRRF();
+     then
+          BigDecimal ipeCalculado = $servidor.getVantagemDescontos().stream().filter(vd -> vd.getCodRubrica().equals("010"))
+              .collect(Collectors.toList()).get(0).getValor();
+          BigDecimal vencimentoDescontadoIPE = $vencimento.subtract(ipeCalculado);
+          BigDecimal aliquota;
+          BigDecimal parcelaDedutivel;
+
+          if(vencimentoDescontadoIPE.compareTo($faixa3.getLimiteSuperior()) <= 0){
+            aliquota = new BigDecimal($faixa3.getAliquota());
+            parcelaDedutivel = $faixa3.getParcelaDedutivel();
+          } else {
+            aliquota = new BigDecimal($faixa4.getAliquota());
+            parcelaDedutivel = $faixa4.getParcelaDedutivel();
+          }
+
+          BigDecimal irrf = vencimentoDescontadoIPE.multiply(aliquota).subtract(parcelaDedutivel).setScale(2, RoundingMode.HALF_EVEN);
+          $servidor.addVantagemDesconto(new VantagemDesconto("011", irrf, $servidor.getVigencia()));
+    end;
+
+  rule "IRRF Estatutarios faixa 5 (01/01/2022 - 31/12/2022)"
+     when
+          $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoRegime == "RJU");
+          $tabelaIRRF: List();
+          $faixa4: IRRF() from $tabelaIRRF.get(3);
+          $faixa5: IRRF() from $tabelaIRRF.get(4);
+          $vencimento: BigDecimal($vencimento.compareTo($faixa4.getLimiteSuperior()) > 0) from $servidor.getSomatorioIRRF();
+     then
+          BigDecimal ipeCalculado = $servidor.getVantagemDescontos().stream().filter(vd -> vd.getCodRubrica().equals("010"))
+              .collect(Collectors.toList()).get(0).getValor();
+          BigDecimal vencimentoDescontadoIPE = $vencimento.subtract(ipeCalculado);
+          BigDecimal aliquota;
+          BigDecimal parcelaDedutivel;
+
+          if(vencimentoDescontadoIPE.compareTo($faixa4.getLimiteSuperior()) <= 0){
+            aliquota = new BigDecimal($faixa4.getAliquota());
+            parcelaDedutivel = $faixa4.getParcelaDedutivel();
+          } else {
+            aliquota = new BigDecimal($faixa5.getAliquota());
+            parcelaDedutivel = $faixa5.getParcelaDedutivel();
+          }
+
+          BigDecimal irrf = vencimentoDescontadoIPE.multiply(aliquota).subtract(parcelaDedutivel).setScale(2, RoundingMode.HALF_EVEN);
+          $servidor.addVantagemDesconto(new VantagemDesconto("011", irrf, $servidor.getVigencia()));
+    end;

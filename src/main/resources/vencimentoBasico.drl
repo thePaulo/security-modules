@@ -1,0 +1,333 @@
+//package KieRule;
+//import com.spring.drools.model.*;
+//import java.math.BigDecimal;
+//import java.util.ArrayList;
+//import java.util.List
+//import java.util.Date
+//import java.math.MathContext
+//import java.math.RoundingMode;
+//import com.spring.drools.repository.*
+//import java.util.stream.Collectors;
+//import java.time.LocalDate;
+//import java.time.*;
+//import java.time.format.DateTimeFormatter;
+//
+//
+//rule "Vencimento base (01/01/2022 - 31/12/2022)"
+//    when
+//        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true);
+//    then
+//        $servidor.addVantagemDesconto(new VantagemDesconto("001", $servidor.getRemuneracaoBase(), $servidor.getVigencia()));
+//    end;
+//
+//rule "Vencimento base (01/01/2021 - 31/12/2021)"
+//    when
+//        $servidor : Snapshot($servidor.verificaVigencia("01-01-2021", "31-12-2021") == true);
+//    then
+//        $servidor.addVantagemDesconto(new VantagemDesconto("001", new BigDecimal("0.00"), $servidor.getVigencia()));
+//    end;
+//
+//rule "Quinquenio (01/01/2022 - 31/12/2022)"
+//    when
+//        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true);
+//    then
+//        $servidor.addVantagemDesconto(new VantagemDesconto("002", $servidor.getRemuneracaoBase().multiply(new BigDecimal("0.05")).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+//    end;
+//
+//rule "Insalubridade (01/01/2022 - 31/12/2022)"
+//    when
+//        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && lotacaoInsalubre == true);
+//        $salario: SalarioMinimo();
+//    then
+//        $servidor.addVantagemDesconto(new VantagemDesconto("003", $salario.getValor().multiply(new BigDecimal("0.40")).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+//    end;
+//
+//rule "Periculosidade (01/01/2022 - 31/12/2022)"
+//    when
+//        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && lotacaoInsalubre == false);
+//    then
+//        $servidor.addVantagemDesconto(new VantagemDesconto("004", $servidor.getRemuneracaoBase().multiply(new BigDecimal("0.30")).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+//    end;
+//
+//rule "Ferias (01/01/2022 - 31/12/2022)"
+//    when
+//        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoFerias == true);
+//    then
+//        $servidor.addVantagemDesconto(new VantagemDesconto("005", $servidor.getRemuneracaoBase().divide(new BigDecimal("3.00"), MathContext.DECIMAL128).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+//    end;
+//
+//rule "Faltas (01/01/2022 - 31/12/2022)"
+//   when
+//        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoFaltas > 0);
+//   then
+//        $servidor.addVantagemDesconto(new VantagemDesconto("006", $servidor.getRemuneracaoBase().divide(new BigDecimal("30.00"), MathContext.DECIMAL128).multiply(new BigDecimal($servidor.getVinculoFaltas().toString())).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+//    end;
+//
+//rule "Salario Familia (01/01/2022 - 31/12/2022)"
+//    when
+//        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoDependentes > 0);
+//        $salarioFamilia : SalarioFamilia();
+//    then
+//        $servidor.addVantagemDesconto(new VantagemDesconto("007", new BigDecimal($servidor.getVinculoDependentes().toString()).multiply($salarioFamilia.getValor()).setScale(2), $servidor.getVigencia()));
+//    end;
+//
+//
+//rule "Adicional Noturno (01/01/2022 - 31/12/2022)"
+//    when
+//        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true && vinculoHorasNoturnas > 0);
+//    then
+//        $servidor.addVantagemDesconto(new VantagemDesconto("008", $servidor.getRemuneracaoBase().divide(new BigDecimal("30.00"), MathContext.DECIMAL128).multiply(new BigDecimal("0.20").multiply($servidor.getVinculoHorasNoturnas())).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+//    end;
+//
+//
+//rule "INSS faixa 1 (01/01/2022 - 31/12/2022)"
+//   when
+//        $listaINSS: List();
+//        $faixa1: INSS() from $listaINSS.get(0);
+//        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true);
+//        $vencimento: BigDecimal($vencimento.compareTo($faixa1.getLimiteInferior()) == 1 && $vencimento.compareTo($faixa1.getLimiteSuperior().add(new BigDecimal("0.01"))) == -1) from $servidor.getRemuneracaoBase();
+//   then
+//        $servidor.addVantagemDesconto(new VantagemDesconto("009", $servidor.getRemuneracaoBase().multiply(new BigDecimal($faixa1.getAliquota())).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+//  end;
+//
+//
+//rule "INSS faixa 2 (01/01/2022 - 31/12/2022)"
+//   when
+//        $listaINSS: List();
+//        $faixa1: INSS() from $listaINSS.get(0);
+//        $faixa2: INSS() from $listaINSS.get(1);
+//        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true);
+//        $vencimento: BigDecimal($vencimento.compareTo($faixa1.getLimiteSuperior()) == 1 && $vencimento.compareTo($faixa2.getLimiteSuperior().add(new BigDecimal("0.01"))) == -1) from $servidor.getRemuneracaoBase();
+//   then
+//        BigDecimal valor1 = $faixa1.getLimiteSuperior().multiply(new BigDecimal($faixa1.getAliquota()));
+//        BigDecimal valor2 = ($vencimento.subtract($faixa1.getLimiteSuperior())).multiply(new BigDecimal($faixa2.getAliquota()));
+//        $servidor.addVantagemDesconto(new VantagemDesconto( "009", valor1.add(valor2).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+//  end;
+//
+//rule "INSS faixa 3 (01/01/2022 - 31/12/2022)"
+//   when
+//        $listaINSS: List();
+//        $faixa1: INSS() from $listaINSS.get(0);
+//        $faixa2: INSS() from $listaINSS.get(1);
+//        $faixa3: INSS() from $listaINSS.get(2);
+//        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true);
+//        $vencimento: BigDecimal($vencimento.compareTo($faixa2.getLimiteSuperior()) == 1 && $vencimento.compareTo($faixa3.getLimiteSuperior().add(new BigDecimal("0.01"))) == -1) from $servidor.getRemuneracaoBase();
+//   then
+//        BigDecimal valor1 = $faixa1.getLimiteSuperior().multiply(new BigDecimal($faixa1.getAliquota())).setScale(2);
+//        BigDecimal valor2 = ($faixa2.getLimiteSuperior().subtract($faixa2.getLimiteInferior())).multiply(new BigDecimal($faixa2.getAliquota()));
+//        BigDecimal valor3 = ($vencimento.subtract($faixa2.getLimiteSuperior())).multiply(new BigDecimal($faixa3.getAliquota()));
+//        $servidor.addVantagemDesconto(new VantagemDesconto("009", valor1.add(valor2).add(valor3).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+//  end;
+//
+//  rule "INSS faixa 4 (01/01/2022 - 31/12/2022)"
+//     when
+//          $listaINSS: List();
+//          $faixa1: INSS() from $listaINSS.get(0);
+//          $faixa2: INSS() from $listaINSS.get(1);
+//          $faixa3: INSS() from $listaINSS.get(2);
+//          $faixa4: INSS() from $listaINSS.get(3);
+//          $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true);
+//          $vencimento: BigDecimal($vencimento.compareTo($faixa3.getLimiteSuperior()) > 0) from $servidor.getRemuneracaoBase();
+//
+//     then
+//          BigDecimal valor1 = $faixa1.getLimiteSuperior().multiply(new BigDecimal($faixa1.getAliquota())).setScale(2);
+//          BigDecimal valor2 = ($faixa2.getLimiteSuperior().subtract($faixa2.getLimiteInferior())).multiply(new BigDecimal($faixa2.getAliquota()));
+//          BigDecimal valor3 = ($faixa3.getLimiteSuperior().subtract($faixa3.getLimiteInferior())).multiply(new BigDecimal($faixa3.getAliquota()));
+//          BigDecimal valor4;
+//
+//          if($vencimento.compareTo($faixa4.getLimiteSuperior()) <= 0){
+//               valor4 = ($vencimento.subtract($faixa4.getLimiteInferior())).multiply(new BigDecimal($faixa4.getAliquota()));
+//          } else {
+//               valor4 = ($faixa4.getLimiteSuperior().subtract($faixa4.getLimiteInferior())).multiply(new BigDecimal($faixa4.getAliquota()));
+//          }
+//
+//          $servidor.addVantagemDesconto(new VantagemDesconto("009", valor1.add(valor2).add(valor3).add(valor4).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+//    end;
+//
+//rule "IPE faixa 1 (01/01/2022 - 31/12/2022)"
+//   when
+//        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true);
+//        $vencimento: BigDecimal() from $servidor.getRemuneracaoBase();
+//        $listaIPE: List();
+//        $faixa1: IPE($vencimento.compareTo($faixa1.getLimiteInferior()) == 1 && $vencimento.compareTo($faixa1.getLimiteSuperior().add(new BigDecimal("0.01"))) == -1) from $listaIPE.get(0);
+//   then
+//        $servidor.addVantagemDesconto(new VantagemDesconto("010", $servidor.getRemuneracaoBase().multiply(new BigDecimal($faixa1.getAliquota())).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+//  end;
+//
+//
+//rule "IPE faixa 2 (01/01/2022 - 31/12/2022)"
+//   when
+//        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true);
+//        $vencimento: BigDecimal() from $servidor.getRemuneracaoBase();
+//        $listaIPE: List();
+//        $faixa1: IPE() from $listaIPE.get(0);
+//        $faixa2: IPE($vencimento.compareTo($faixa1.getLimiteSuperior()) == 1 && $vencimento.compareTo($faixa2.getLimiteSuperior().add(new BigDecimal("0.01"))) == -1) from $listaIPE.get(1);
+//   then
+//        BigDecimal valor1 = $faixa1.getLimiteSuperior().multiply(new BigDecimal($faixa1.getAliquota()));
+//        BigDecimal valor2 = ($vencimento.subtract($faixa1.getLimiteSuperior())).multiply(new BigDecimal($faixa2.getAliquota()));
+//        $servidor.addVantagemDesconto(new VantagemDesconto("010", valor1.add(valor2).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+//  end;
+//
+//  rule "IPE faixa 3 (01/01/2022 - 31/12/2022)"
+//     when
+//          $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true);
+//          $vencimento: BigDecimal() from $servidor.getRemuneracaoBase();
+//          $listaIPE: List();
+//          $faixa1: IPE() from $listaIPE.get(0);
+//          $faixa2: IPE() from $listaIPE.get(1);
+//          $faixa3: IPE($vencimento.compareTo($faixa2.getLimiteSuperior()) == 1 && $vencimento.compareTo($faixa3.getLimiteSuperior().add(new BigDecimal("0.01"))) == -1) from $listaIPE.get(2);
+//     then
+//          BigDecimal valor1 = $faixa1.getLimiteSuperior().multiply(new BigDecimal($faixa1.getAliquota()));
+//          BigDecimal valor2 = $faixa2.getLimiteSuperior().multiply(new BigDecimal($faixa2.getAliquota()));
+//          BigDecimal valor3 = ($vencimento.subtract($faixa2.getLimiteSuperior())).multiply(new BigDecimal($faixa3.getAliquota()));
+//          $servidor.addVantagemDesconto(new VantagemDesconto("010", valor1.add(valor2.add(valor3)).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+//    end;
+//
+//rule "IPE faixa 4 (01/01/2022 - 31/12/2022)"
+//     when
+//          $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true);
+//          $vencimento: BigDecimal() from $servidor.getRemuneracaoBase();
+//          $listaIPE: List();
+//          $faixa1: IPE() from $listaIPE.get(0);
+//          $faixa2: IPE() from $listaIPE.get(1);
+//          $faixa3: IPE() from $listaIPE.get(2);
+//          $faixa4: IPE($vencimento.compareTo($faixa3.getLimiteSuperior()) == 1 && $vencimento.compareTo($faixa4.getLimiteSuperior().add(new BigDecimal("0.01"))) == -1) from $listaIPE.get(3);
+//     then
+//          BigDecimal vencimento = $vencimento;
+//          BigDecimal valor1 = $faixa1.getLimiteSuperior().multiply(new BigDecimal($faixa1.getAliquota()));
+//          BigDecimal valor2 = $faixa2.getLimiteSuperior().multiply(new BigDecimal($faixa2.getAliquota()));
+//          BigDecimal valor3 = $faixa3.getLimiteSuperior().multiply(new BigDecimal($faixa3.getAliquota()));
+//          BigDecimal valor4 = ($vencimento.subtract($faixa3.getLimiteSuperior())).multiply(new BigDecimal($faixa4.getAliquota()));
+//          $servidor.addVantagemDesconto(new VantagemDesconto("010", valor1.add(valor2.add(valor3.add(valor4))).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+//    end;
+//
+//rule "IPE faixa 5 (01/01/2022 - 31/12/2022)"
+//     when
+//          $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true);
+//          $vencimento: BigDecimal() from $servidor.getRemuneracaoBase();
+//          $listaIPE: List();
+//          $faixa1: IPE() from $listaIPE.get(0);
+//          $faixa2: IPE() from $listaIPE.get(1);
+//          $faixa3: IPE() from $listaIPE.get(2);
+//          $faixa4: IPE() from $listaIPE.get(3);
+//          $faixa5: IPE($vencimento.compareTo($faixa4.getLimiteSuperior()) == 1 && $faixa5.getLimiteSuperior() == 0) from $listaIPE.get(4);
+//     then
+//          BigDecimal vencimento = $vencimento;
+//          BigDecimal valor1 = $faixa1.getLimiteSuperior().multiply(new BigDecimal($faixa1.getAliquota()));
+//          BigDecimal valor2 = $faixa2.getLimiteSuperior().multiply(new BigDecimal($faixa2.getAliquota()));
+//          BigDecimal valor3 = $faixa3.getLimiteSuperior().multiply(new BigDecimal($faixa3.getAliquota()));
+//          BigDecimal valor4 = $faixa4.getLimiteSuperior().multiply(new BigDecimal($faixa4.getAliquota()));
+//          BigDecimal valor5 = ($vencimento.subtract($faixa4.getLimiteSuperior())).multiply(new BigDecimal($faixa5.getAliquota()));
+//          $servidor.addVantagemDesconto(new VantagemDesconto("010", valor1.add(valor2.add(valor3.add(valor4.add(valor5)))).setScale(2, RoundingMode.HALF_EVEN), $servidor.getVigencia()));
+//    end;
+//
+//rule "IRRF Celetistas faixa 1 (01/01/2022 - 31/12/2022)"
+//   when
+//        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true);
+//        $tabelaIRRF: List();
+//        $faixa1: IRRF_Celetista() from $tabelaIRRF.get(0);
+//        $vencimento: BigDecimal($vencimento.compareTo($faixa1.getLimiteInferior()) > 0 && $vencimento.compareTo($faixa1.getLimiteSuperior().add(new BigDecimal("0.01"))) < 0) from $servidor.getRemuneracaoBase();
+//   then
+//        $servidor.addVantagemDesconto(new VantagemDesconto("011", new BigDecimal("0.00"), $servidor.getVigencia()));
+//  end;
+//
+//rule "IRRF Celetistas faixa 2 (01/01/2022 - 31/12/2022)"
+//   when
+//        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true);
+//        $tabelaIRRF: List();
+//        $faixa1: IRRF_Celetista() from $tabelaIRRF.get(0);
+//        $faixa2: IRRF_Celetista() from $tabelaIRRF.get(1);
+//        $vencimento: BigDecimal($vencimento.compareTo($faixa1.getLimiteSuperior()) > 0 && $vencimento.compareTo($faixa2.getLimiteSuperior().add(new BigDecimal("0.01"))) < 0) from $servidor.getRemuneracaoBase();
+//   then
+//        BigDecimal inssCalculado = $servidor.getContracheque().stream().filter(vd -> vd.getCodRubrica().equals("009"))
+//            .collect(Collectors.toList()).get(0).getValor();
+//        BigDecimal vencimentoDescontadoINSS = $vencimento.subtract(inssCalculado);
+//        BigDecimal aliquota = new BigDecimal($faixa2.getAliquota());
+//        BigDecimal parcelaDedutivel = $faixa2.getParcelaDedutivel();
+//        BigDecimal irrf = vencimentoDescontadoINSS.multiply(aliquota).subtract(parcelaDedutivel).setScale(2, RoundingMode.HALF_EVEN);
+//
+//        if(irrf.compareTo(new BigDecimal("0.00")) < 0){
+//            $servidor.addVantagemDesconto(new VantagemDesconto("011", new BigDecimal("0.00"),$servidor.getVigencia()));
+//        } else {
+//            $servidor.addVantagemDesconto(new VantagemDesconto( "011", irrf,$servidor.getVigencia()));
+//        }
+//  end;
+//
+//  rule "IRRF Celetistas faixa 3 (01/01/2022 - 31/12/2022)"
+//   when
+//        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true);
+//        $tabelaIRRF: List();
+//        $faixa2: IRRF_Celetista() from $tabelaIRRF.get(1);
+//        $faixa3: IRRF_Celetista() from $tabelaIRRF.get(2);
+//        $vencimento: BigDecimal($vencimento.compareTo($faixa2.getLimiteSuperior()) > 0 && $vencimento.compareTo($faixa3.getLimiteSuperior().add(new BigDecimal("0.01"))) < 0) from $servidor.getRemuneracaoBase();
+//   then
+//        BigDecimal inssCalculado = $servidor.getContracheque().stream().filter(vd -> vd.getCodRubrica().equals("009"))
+//            .collect(Collectors.toList()).get(0).getValor();
+//        BigDecimal vencimentoDescontadoINSS = $vencimento.subtract(inssCalculado);
+//        BigDecimal aliquota;
+//        BigDecimal parcelaDedutivel;
+//
+//        if(vencimentoDescontadoINSS.compareTo($faixa2.getLimiteSuperior()) <= 0){
+//          aliquota = new BigDecimal($faixa2.getAliquota());
+//          parcelaDedutivel = $faixa2.getParcelaDedutivel();
+//        } else {
+//          aliquota = new BigDecimal($faixa3.getAliquota());
+//          parcelaDedutivel = $faixa3.getParcelaDedutivel();
+//        }
+//
+//        BigDecimal irrf = vencimentoDescontadoINSS.multiply(aliquota).subtract(parcelaDedutivel).setScale(2, RoundingMode.HALF_EVEN);
+//        $servidor.addVantagemDesconto(new VantagemDesconto( "011", irrf, $servidor.getVigencia()));
+//  end;
+//
+//rule "IRRF Celetistas faixa 4 (01/01/2022 - 31/12/2022)"
+//   when
+//        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true);
+//        $tabelaIRRF: List();
+//        $faixa3: IRRF_Celetista() from $tabelaIRRF.get(2);
+//        $faixa4: IRRF_Celetista() from $tabelaIRRF.get(3);
+//        $vencimento: BigDecimal($vencimento.compareTo($faixa3.getLimiteSuperior()) > 0 && $vencimento.compareTo($faixa4.getLimiteSuperior().add(new BigDecimal("0.01"))) < 0) from $servidor.getRemuneracaoBase();
+//   then
+//        BigDecimal inssCalculado = $servidor.getContracheque().stream().filter(vd -> vd.getCodRubrica().equals("009"))
+//            .collect(Collectors.toList()).get(0).getValor();
+//        BigDecimal vencimentoDescontadoINSS = $vencimento.subtract(inssCalculado);
+//        BigDecimal aliquota;
+//        BigDecimal parcelaDedutivel;
+//
+//        if(vencimentoDescontadoINSS.compareTo($faixa3.getLimiteSuperior()) <= 0){
+//          aliquota = new BigDecimal($faixa3.getAliquota());
+//          parcelaDedutivel = $faixa3.getParcelaDedutivel();
+//        } else {
+//          aliquota = new BigDecimal($faixa4.getAliquota());
+//          parcelaDedutivel = $faixa4.getParcelaDedutivel();
+//        }
+//
+//        BigDecimal irrf = vencimentoDescontadoINSS.multiply(aliquota).subtract(parcelaDedutivel).setScale(2, RoundingMode.HALF_EVEN);
+//        $servidor.addVantagemDesconto(new VantagemDesconto("011", irrf, $servidor.getVigencia()));
+//  end;
+//
+//rule "IRRF Celetistas faixa 5 (01/01/2022 - 31/12/2022)"
+//   when
+//        $servidor : Snapshot($servidor.verificaVigencia("01-01-2022", "31-12-2022") == true);
+//        $tabelaIRRF: List();
+//        $faixa4: IRRF_Celetista() from $tabelaIRRF.get(3);
+//        $faixa5: IRRF_Celetista() from $tabelaIRRF.get(4);
+//        $vencimento: BigDecimal($vencimento.compareTo($faixa4.getLimiteSuperior()) > 0) from $servidor.getRemuneracaoBase();
+//   then
+//        BigDecimal inssCalculado = $servidor.getContracheque().stream().filter(vd -> vd.getCodRubrica().equals("009"))
+//            .collect(Collectors.toList()).get(0).getValor();
+//        BigDecimal vencimentoDescontadoINSS = $vencimento.subtract(inssCalculado);
+//        BigDecimal aliquota;
+//        BigDecimal parcelaDedutivel;
+//
+//        if(vencimentoDescontadoINSS.compareTo($faixa4.getLimiteSuperior()) <= 0){
+//          aliquota = new BigDecimal($faixa4.getAliquota());
+//          parcelaDedutivel = $faixa4.getParcelaDedutivel();
+//        } else {
+//          aliquota = new BigDecimal($faixa5.getAliquota());
+//          parcelaDedutivel = $faixa5.getParcelaDedutivel();
+//        }
+//
+//        BigDecimal irrf = vencimentoDescontadoINSS.multiply(aliquota).subtract(parcelaDedutivel).setScale(2, RoundingMode.HALF_EVEN);
+//        $servidor.addVantagemDesconto(new VantagemDesconto("011", irrf, $servidor.getVigencia()));
+//  end;
+//
